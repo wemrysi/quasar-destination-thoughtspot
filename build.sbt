@@ -6,8 +6,10 @@ scmInfo in ThisBuild := Some(ScmInfo(
   url("https://github.com/slamdata/quasar-destination-thoughtspot"),
   "scm:git@github.com:slamdata/quasar-destination-thoughtspot.git"))
 
-val quasarVersion = IO.read(file("./quasar-version")).trim
-val fs2SshVersion = IO.read(file("./fs2-ssh-version")).trim
+val QuasarVersion = IO.read(file("./quasar-version")).trim
+val Fs2SshVersion = IO.read(file("./fs2-ssh-version")).trim
+
+val ArgonautVersion = "6.2.3"
 
 // Include to also publish a project's tests
 lazy val publishTestsSettings = Seq(
@@ -24,10 +26,12 @@ lazy val core = project
   .settings(name := "quasar-destination-thoughtspot")
   .settings(
     quasarPluginName := "s3",
-    quasarPluginQuasarVersion := quasarVersion,
-    // quasarPluginDestinationFqcn := Some(""),
+    quasarPluginQuasarVersion := QuasarVersion,
+    quasarPluginDestinationFqcn := Some("quasar.physical.ts.TSDestinationModule$"),
 
-    quasarPluginDependencies += "com.slamdata" %% "fs2-ssh" % fs2SshVersion,
+    quasarPluginDependencies ++= Seq(
+      "io.argonaut"  %% "argonaut" % ArgonautVersion,
+      "com.slamdata" %% "fs2-ssh"  % Fs2SshVersion),
 
     performMavenCentralSync := false,
     publishAsOSSProject := true)
