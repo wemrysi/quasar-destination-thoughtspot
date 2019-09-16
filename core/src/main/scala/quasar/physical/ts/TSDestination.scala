@@ -105,16 +105,16 @@ final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] priv
 
   private[this] def loadCommand(table: String): String =
     s"""
-    | gzip -dc | \
-    | tsload \
-    |   --target_database ${config.database} \
-    |   --target_table table \
-    |   --field_separator ',' \
-    |   --null_value '' \
-    |   --date_time_format '%Y-%m-%d %H:%M:%S' \
-    |   --skip_second_fraction \
-    |   --date_format '%Y-%m-%d' \
-    |   --boolean_representation 'true'""".stripMargin
+    | gzip -dc |
+    | tsload
+    |   --target_database ${config.database}
+    |   --target_table table
+    |   --field_separator ','
+    |   --null_value ''
+    |   --date_time_format '%Y-%m-%d %H:%M:%S'
+    |   --skip_second_fraction
+    |   --date_format '%Y-%m-%d'
+    |   --boolean_representation 'true'""".stripMargin.replace("\n", "")
 }
 
 object TSDestination {
