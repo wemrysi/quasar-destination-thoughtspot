@@ -114,9 +114,12 @@ final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] priv
           .through(p.stdin)
           .concurrently(
             p.stdout
-              .merge(p.stderr)
               .through(text.utf8Decode)
               .through(text.lines)
+              .merge(
+                p.stderr
+                  .through(text.utf8Decode)
+                  .through(text.lines))
               .through(traceSink))
 
         _ <- ingest.compile.resource.drain
