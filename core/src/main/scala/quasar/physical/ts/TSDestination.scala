@@ -118,8 +118,8 @@ final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] priv
     s"""
     | gzip -dc |
     | tsload
-    |   --target_database ${config.database}
-    |   --target_table table
+    |   --target_database '${config.database}'
+    |   --target_table '$table'
     |   --field_separator ','
     |   --null_value ''
     |   --date_time_format '%Y-%m-%d %H:%M:%S'
