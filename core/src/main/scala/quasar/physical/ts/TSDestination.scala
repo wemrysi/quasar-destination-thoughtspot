@@ -114,12 +114,12 @@ final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] priv
       r.use(_.pure[F])
     }
 
-  private[this] def loadCommand(table: String): String =
+  private[this] def loadCommand(tableName: String): String =
     s"""
     | gzip -dc |
     | tsload
     |   --target_database '${config.database}'
-    |   --target_table '$table'
+    |   --target_table '$tableName'
     |   --field_separator ','
     |   --null_value ''
     |   --date_time_format '%Y-%m-%d %H:%M:%S'
