@@ -16,14 +16,16 @@
 
 package quasar.physical.ts
 
-import cats.Functor
-import cats.effect.{Blocker, Concurrent, ContextShift, Resource}
+import cats.{Functor, Show}
+import cats.effect.{Blocker, Concurrent, ContextShift, Resource, Sync}
 import cats.implicits._
 import cats.mtl.FunctorRaise
 
-import fs2.Stream
+import fs2.{text, Pipe, Stream}
 import fs2.compress.gzip
 import fs2.io.ssh.{Auth => SshAuth, Client, ConnectionConfig}
+
+import org.slf4s.Logging
 
 import quasar.api.destination.{Destination, DestinationError, ResultSink}, DestinationError.InitializationError
 import quasar.api.resource.ResourceName
@@ -34,7 +36,7 @@ import scalaz.NonEmptyList
 
 import shims._
 
-import scala.{List, None, Predef, Some, StringContext}, Predef._
+import scala.{List, None, Predef, Some, StringContext, Unit}, Predef._
 import scala.util.Either
 
 import java.lang.String
@@ -45,7 +47,8 @@ final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] priv
     config: TSConfig,
     client: Client[F],
     blocker: Blocker)
-    extends Destination[F] {
+    extends Destination[F]
+    with Logging {
 
   private val BufferSize = 1024 * 10    // keep in sync with BufferContext#RenderBufferSize
 
@@ -112,12 +115,11 @@ final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] priv
           .concurrently(
             p.stdout
               .merge(p.stderr)
-              .through(fs2.io.stdout[F](blocker.blockingContext)))
+              .through(text.utf8Decode)
+              .through(text.lines)
+              .through(traceSink))
 
-        _ <- ingest
-          .compile
-          .resource
-          .drain
+        _ <- ingest.compile.resource.drain
 
         _ <- Resource.liftF(p.join)
       } yield ()
@@ -165,6 +167,9 @@ final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] priv
       | CREATE TABLE "$tableName" $colsStr;
       """.stripMargin
   }
+
+  private[this] def traceSink[A: Show]: Pipe[F, A, Unit] =
+    _.evalMap(a => Sync[F].delay(log.trace(a.show)))
 }
 
 object TSDestination {
