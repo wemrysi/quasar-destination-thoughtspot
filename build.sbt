@@ -25,7 +25,7 @@ lazy val core = project
   .in(file("core"))
   .settings(name := "quasar-destination-thoughtspot")
   .settings(
-    quasarPluginName := "s3",
+    quasarPluginName := "thoughtspot",
     quasarPluginQuasarVersion := QuasarVersion,
     quasarPluginDestinationFqcn := Some("quasar.physical.ts.TSDestinationModule$"),
 
