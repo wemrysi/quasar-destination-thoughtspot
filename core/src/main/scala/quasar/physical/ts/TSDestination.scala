@@ -21,18 +21,20 @@ import cats.effect.{Blocker, Concurrent, ContextShift, Resource}
 import cats.implicits._
 import cats.mtl.FunctorRaise
 
+import fs2.Stream
 import fs2.compress.gzip
 import fs2.io.ssh.{Auth => SshAuth, Client, ConnectionConfig}
 
 import quasar.api.destination.{Destination, DestinationError, ResultSink}, DestinationError.InitializationError
 import quasar.api.resource.ResourceName
+import quasar.api.table.{ColumnType, TableColumn}
 import quasar.connector.{MonadResourceErr, ResourceError}
 
 import scalaz.NonEmptyList
 
 import shims._
 
-import scala.{None, Predef, Some, StringContext}, Predef._
+import scala.{List, None, Predef, Some, StringContext}, Predef._
 import scala.util.Either
 
 import java.lang.String
@@ -62,7 +64,7 @@ final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] priv
     NonEmptyList(tsSink)
 
   private[this] val tsSink: ResultSink[F] =
-    ResultSink.Csv[F] { (path, _, bytes) =>
+    ResultSink.Csv[F] { (path, columns, bytes) =>
       implicit val raiseClientErrorInResourceErr: FunctorRaise[F, Client.Error] =
           new FunctorRaise[F, Client.Error] {
             val functor = Functor[F]
@@ -91,6 +93,15 @@ final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] priv
 
       val r = for {
         tableName <- Resource.liftF[F, String](tableNameF)
+
+        p <- client.exec(cc, "tql", blocker)
+        _ <- Stream(overwriteDdl(tableName, columns) + "exit;")
+          .flatMap(s => Stream.emits(s.getBytes("UTF-8")))
+          .through(p.stdin)
+          .compile
+          .resource
+          .drain
+
         p <- client.exec(cc, loadCommand(tableName), blocker)
         _ <- bytes
           .through(gzip[F](BufferSize))
@@ -115,6 +126,34 @@ final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] priv
     |   --skip_second_fraction
     |   --date_format '%Y-%m-%d'
     |   --boolean_representation 'true'""".stripMargin.replace("\n", "")
+
+  // TODO partitioning
+  private[this] def overwriteDdl(tableName: String, columns: List[TableColumn]): String = {
+    def renderColumn(col: TableColumn): String = {
+      import ColumnType.{String => _, _}
+
+      val TableColumn(name, tpe) = col
+
+      val tpeStr = tpe match {
+        case Boolean | Null => "BOOL"
+        case LocalTime | OffsetTime => "TIME"
+        case LocalDate | OffsetDate => "DATE"
+        case LocalDateTime | OffsetDateTime => "DATETIME"
+        case Interval => ???
+        case Number => "DOUBLE"   // TODO
+        case ColumnType.String => "VARCHAR(255)"   // TODO!
+      }
+
+      s""""${name}" $tpeStr"""
+    }
+
+    val colsStr = columns.map(renderColumn).mkString("(", ",", ")")
+
+    s"""USE "${config.database}";
+      | DROP TABLE "$tableName";
+      | CREATE TABLE "$tableName" $colsStr;
+      """.stripMargin
+  }
 }
 
 object TSDestination {
