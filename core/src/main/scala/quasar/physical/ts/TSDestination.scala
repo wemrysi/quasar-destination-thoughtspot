@@ -64,7 +64,7 @@ final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] priv
     NonEmptyList(tsSink)
 
   private[this] val tsSink: ResultSink[F] =
-    ResultSink.Csv[F] { (path, columns, bytes) =>
+    ResultSink.csv[F](false) { (path, columns, bytes) =>
       implicit val raiseClientErrorInResourceErr: FunctorRaise[F, Client.Error] =
           new FunctorRaise[F, Client.Error] {
             val functor = Functor[F]
