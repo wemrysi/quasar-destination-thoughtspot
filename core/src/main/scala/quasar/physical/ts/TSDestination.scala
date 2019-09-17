@@ -102,13 +102,24 @@ final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] priv
           .resource
           .drain
 
-        p <- client.exec(cc, loadCommand(tableName), blocker)
-        _ <- bytes
+        cmd = loadCommand(tableName)
+        _ <- Resource.liftF(Concurrent[F].delay(println(cmd)))
+        p <- client.exec(cc, cmd, blocker)
+
+        ingest = bytes
           .through(gzip[F](BufferSize))
           .through(p.stdin)
+          .concurrently(
+            p.stdout
+              .merge(p.stderr)
+              .through(fs2.io.stdout[F](blocker.blockingContext)))
+
+        _ <- ingest
           .compile
           .resource
           .drain
+
+        _ <- Resource.liftF(p.join)
       } yield ()
 
       r.use(_.pure[F])
