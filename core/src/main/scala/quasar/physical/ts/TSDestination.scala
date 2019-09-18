@@ -36,7 +36,7 @@ import scalaz.NonEmptyList
 
 import shims._
 
-import scala.{List, None, Predef, Some, StringContext, Unit}, Predef._
+import scala.{Byte, List, None, Predef, Some, StringContext, Unit}, Predef._
 import scala.util.Either
 
 import java.lang.String
@@ -97,6 +97,10 @@ final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] priv
       val r = for {
         tableName <- Resource.liftF[F, String](tableNameF)
 
+        _ <- Resource.liftF(
+            Sync[F].delay(
+              log.info(s"(re)creating ${config.database}.${tableName} with schema ${columns.show}")))
+
         p <- client.exec(cc, "tql", blocker)
         _ <- Stream(overwriteDdl(tableName, columns) + "exit;")
           .flatMap(s => Stream.emits(s.getBytes("UTF-8")))
@@ -106,10 +110,14 @@ final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] priv
           .drain
 
         cmd = loadCommand(tableName)
-        _ <- Resource.liftF(Concurrent[F].delay(println(cmd)))
+        _ <- Resource.liftF(
+          Sync[F].delay(
+            log.info(s"running remote ingest: $cmd")))
+
         p <- client.exec(cc, cmd, blocker)
 
         ingest = bytes
+          .observe(chunkLogSink)
           .through(gzip[F](BufferSize))
           .through(p.stdin)
           .concurrently(
@@ -120,14 +128,17 @@ final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] priv
                 p.stderr
                   .through(text.utf8Decode)
                   .through(text.lines))
-              .through(traceSink))
+              .through(infoSink))
 
         _ <- ingest.compile.resource.drain
 
         _ <- Resource.liftF(p.join)
       } yield ()
 
-      r.use(_.pure[F])
+      r.use(_.pure[F]) handleErrorWith { t =>
+        Sync[F].delay(log.error("thoughtspot push produced unexpected error", t)) >>
+          Sync[F].raiseError(t)
+      }
     }
 
   private[this] def loadCommand(tableName: String): String =
@@ -171,8 +182,14 @@ final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] priv
       """.stripMargin
   }
 
+  private[this] def infoSink[A: Show]: Pipe[F, A, Unit] =
+    _.evalMap(a => Sync[F].delay(log.trace(a.show)))
+
   private[this] def traceSink[A: Show]: Pipe[F, A, Unit] =
     _.evalMap(a => Sync[F].delay(log.trace(a.show)))
+
+  private[this] val chunkLogSink: Pipe[F, Byte, Unit] =
+    _.chunks.map(c => s"sending ${c.size} bytes").through(traceSink)
 }
 
 object TSDestination {
