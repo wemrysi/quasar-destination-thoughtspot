@@ -30,8 +30,9 @@ lazy val core = project
     quasarPluginDestinationFqcn := Some("quasar.physical.ts.TSDestinationModule$"),
 
     quasarPluginDependencies ++= Seq(
-      "io.argonaut"  %% "argonaut" % ArgonautVersion,
-      "com.slamdata" %% "fs2-ssh"  % Fs2SshVersion),
+      "io.argonaut"  %% "argonaut"  % ArgonautVersion,
+      "com.slamdata" %% "fs2-ssh"   % Fs2SshVersion,
+      "org.slf4s"    %% "slf4s-api" % "1.7.25"),
 
     performMavenCentralSync := false,
     publishAsOSSProject := true)
