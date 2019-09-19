@@ -16,6 +16,8 @@
 
 package quasar.physical.ts
 
+import slamdata.Predef._
+
 import argonaut._, Argonaut._
 
 import cats.implicits._
@@ -42,7 +44,7 @@ object TSConfig {
 
 sealed trait Auth extends Product with Serializable {
   def sanitized: Auth = this match {
-    case Auth.PrivateKey(_) => Auth.PrivateKey("<redacted>")
+    case Auth.PrivateKey(_, _) => Auth.PrivateKey("<redacted>", None)
     case Auth.Password(_) => Auth.Password("<redacted>")
   }
 }
@@ -52,8 +54,8 @@ object Auth {
   implicit val codec: CodecJson[Auth] = {
     CodecJson(
       {
-        case PrivateKey(value) =>
-          ("type" := PrivateKey.Key) ->: ("contents" := value) ->: jEmptyObject
+        case PrivateKey(value, phrase) =>
+          ("type" := PrivateKey.Key) ->: ("contents" := value) ->: ("passphrase" := phrase) ->: jEmptyObject
 
         case Password(value) =>
           ("type" := Password.Key) ->: ("contents" := value) ->: jEmptyObject
@@ -64,7 +66,7 @@ object Auth {
           contents <- (json --\ "contents").as[String]
 
           back <- if (tpe === PrivateKey.Key)
-            DecodeResult.ok(PrivateKey(contents))
+            (json --\ "passphrase").as[Option[String]].map(PrivateKey(contents, _))
           else if (tpe === Password.Key)
             DecodeResult.ok(Password(contents))
           else
@@ -73,15 +75,15 @@ object Auth {
       })
   }
 
-  final case class PrivateKey(value: String) extends Auth
+  final case class PrivateKey(value: String, passphrase: Option[String]) extends Auth
 
-  object PrivateKey extends (String => Auth) {
+  object PrivateKey {
     val Key = "private-key"
   }
 
   final case class Password(value: String) extends Auth
 
-  object Password extends (String => Auth) {
+  object Password {
     val Key = "password"
   }
 }

@@ -57,7 +57,7 @@ final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] priv
       isa,
       config.user,
       config.auth match {
-        case Auth.PrivateKey(value) => SshAuth.KeyBytes(value.getBytes("UTF-8"))
+        case Auth.PrivateKey(value, phrase) => SshAuth.KeyBytes(value.getBytes("UTF-8"), phrase)
         case Auth.Password(value) => SshAuth.Password(value)
       })
 
