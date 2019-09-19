@@ -142,7 +142,12 @@ final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] priv
 
         _ <- ingest.compile.resource.drain
 
-        _ <- Resource.liftF(p.join)
+        exitCode <- Resource.liftF(p.join)
+
+        _ <- if (exitCode =!= 0)
+          Resource.liftF(Sync[F].delay(log.warn(s"tsload exited with status $exitCode")))
+        else
+          Resource.liftF(Sync[F].delay(log.info(s"tsload exited with status $exitCode")))
       } yield ()
 
       r.use(_.pure[F]) handleErrorWith { t =>
