@@ -178,8 +178,8 @@ final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] priv
         case LocalTime => "TIME"
         case OffsetDate => ???
         case LocalDate => "DATE"
-        case OffsetDateTime => ???
-        case LocalDateTime => "DATETIME"
+        // case OffsetDateTime => ???
+        case OffsetDateTime | LocalDateTime => "DATETIME"
         case Interval => ???
         case Number => "DOUBLE"   // TODO
         case ColumnType.String => "VARCHAR(255)"   // TODO!
