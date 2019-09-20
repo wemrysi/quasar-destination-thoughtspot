@@ -40,7 +40,7 @@ import shims._
 import scala.{Byte, List, None, Predef, Some, StringContext, Unit}, Predef._
 import scala.util.Either
 
-import java.lang.String
+import java.lang.{RuntimeException, String, Throwable}
 import java.net.InetSocketAddress
 import java.time.format.DateTimeFormatter
 
@@ -146,7 +146,8 @@ final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] priv
         exitCode <- Resource.liftF(p.join)
 
         _ <- if (exitCode =!= 0)
-          Resource.liftF(Sync[F].delay(log.warn(s"tsload exited with status $exitCode")))
+          Resource.liftF(Sync[F].delay(log.warn(s"tsload exited with status $exitCode"))) *>
+            Resource.liftF(Sync[F].raiseError(TSDestination.IngestFailure: Throwable))
         else
           Resource.liftF(Sync[F].delay(log.info(s"tsload exited with status $exitCode")))
       } yield ()
@@ -234,4 +235,6 @@ object TSDestination {
       isa <- Resource.liftF(Client.resolve[F](config.host, config.port, blocker))
       client <- Client[F]
     } yield new TSDestination[F](isa, config, client, blocker).asRight[InitializationError[C]]
+
+  case object IngestFailure extends RuntimeException("ThoughtSpot ingest failed for unknown reasons; check the server logs")
 }
