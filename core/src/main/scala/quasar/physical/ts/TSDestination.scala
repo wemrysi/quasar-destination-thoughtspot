@@ -163,6 +163,7 @@ final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] priv
     | gzip -dc |
     | tsload
     |   --target_database '${config.database}'
+    |   ${config.schema.map(s => s"""--target_schema "$s"""").getOrElse("")}
     |   --target_table '$tableName'
     |   --field_separator ','
     |   --null_value ''
@@ -198,6 +199,7 @@ final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] priv
     val colsStr = columns.map(renderColumn).mkString("(", ",", ")")
 
     s"""USE "${config.database}";
+      | ${config.schema.map(s => s"""CREATE SCHEMA "$s";""")};
       | DROP TABLE "$tableName";
       | CREATE TABLE "$tableName" $colsStr;
       """.stripMargin
