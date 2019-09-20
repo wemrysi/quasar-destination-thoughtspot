@@ -127,6 +127,7 @@ final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] priv
         p <- client.exec(cc, cmd, blocker)
 
         ingest = bytes
+          // .observe(in => text.utf8Decode(in).through(text.lines).through(fs2.Sink.showLinesStdOut))
           .observe(chunkLogSink)
           .through(gzip[F](BufferSize))
           .through(p.stdin)
