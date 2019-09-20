@@ -28,6 +28,7 @@ import fs2.io.ssh.{Auth => SshAuth, Client, ConnectionConfig}
 import org.slf4s.Logging
 
 import quasar.api.destination.{Destination, DestinationError, ResultSink}, DestinationError.InitializationError
+import quasar.api.push.RenderConfig
 import quasar.api.resource.ResourceName
 import quasar.api.table.{ColumnType, TableColumn}
 import quasar.connector.{MonadResourceErr, ResourceError}
@@ -41,6 +42,7 @@ import scala.util.Either
 
 import java.lang.String
 import java.net.InetSocketAddress
+import java.time.format.DateTimeFormatter
 
 final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] private (
     isa: InetSocketAddress,
@@ -66,8 +68,16 @@ final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] priv
   def sinks: NonEmptyList[ResultSink[F]] =
     NonEmptyList(tsSink)
 
+  private[this] val csvConfig =
+    RenderConfig.Csv().copy(
+      includeHeader = false,
+      offsetDateTimeFormat = DateTimeFormatter.ofPattern(MimirTimePatterns.LocalDateTime),    // TODO this is the time hack to make things work for now
+      localDateTimeFormat = DateTimeFormatter.ofPattern(MimirTimePatterns.LocalDateTime),
+      localDateFormat = DateTimeFormatter.ofPattern(MimirTimePatterns.LocalDate),
+      localTimeFormat = DateTimeFormatter.ofPattern(MimirTimePatterns.LocalTime))
+
   private[this] val tsSink: ResultSink[F] =
-    ResultSink.csv[F](false) { (path, columns, bytes) =>
+    ResultSink.csv[F](csvConfig) { (path, columns, bytes) =>
       implicit val raiseClientErrorInResourceErr: FunctorRaise[F, Client.Error] =
           new FunctorRaise[F, Client.Error] {
             val functor = Functor[F]
@@ -117,6 +127,7 @@ final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] priv
         p <- client.exec(cc, cmd, blocker)
 
         ingest = bytes
+          // .observe(in => text.utf8Decode(in).through(text.lines).through(fs2.Sink.showLinesStdOut))
           .observe(chunkLogSink)
           .through(gzip[F](BufferSize))
           .through(p.stdin)
@@ -132,7 +143,12 @@ final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] priv
 
         _ <- ingest.compile.resource.drain
 
-        _ <- Resource.liftF(p.join)
+        exitCode <- Resource.liftF(p.join)
+
+        _ <- if (exitCode =!= 0)
+          Resource.liftF(Sync[F].delay(log.warn(s"tsload exited with status $exitCode")))
+        else
+          Resource.liftF(Sync[F].delay(log.info(s"tsload exited with status $exitCode")))
       } yield ()
 
       r.use(_.pure[F]) handleErrorWith { t =>
@@ -149,9 +165,10 @@ final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] priv
     |   --target_table '$tableName'
     |   --field_separator ','
     |   --null_value ''
-    |   --date_time_format '%Y-%m-%d %H:%M:%S'
+    |   --date_time_format '${TSTimePatterns.LocalDateTime}'
+    |   --date_format '${TSTimePatterns.LocalDate}'
+    |   --time_format '${TSTimePatterns.LocalTime}'
     |   --skip_second_fraction
-    |   --date_format '%Y-%m-%d'
     |   --boolean_representation 'true_false'""".stripMargin.replace("\n", "")
 
   // TODO partitioning
@@ -163,9 +180,12 @@ final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] priv
 
       val tpeStr = tpe match {
         case Boolean | Null => "BOOL"
-        case LocalTime | OffsetTime => "TIME"
-        case LocalDate | OffsetDate => "DATE"
-        case LocalDateTime | OffsetDateTime => "DATETIME"
+        case OffsetTime => ???
+        case LocalTime => "TIME"
+        case OffsetDate => ???
+        case LocalDate => "DATE"
+        // case OffsetDateTime => ???
+        case OffsetDateTime | LocalDateTime => "DATETIME"
         case Interval => ???
         case Number => "DOUBLE"   // TODO
         case ColumnType.String => "VARCHAR(255)"   // TODO!
@@ -190,6 +210,18 @@ final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] priv
 
   private[this] val chunkLogSink: Pipe[F, Byte, Unit] =
     _.chunks.map(c => s"sending ${c.size} bytes").through(traceSink)
+
+  private object TSTimePatterns {
+    val LocalDate = "%Y-%m-%d"
+    val LocalTime = "%H:%M:%S"
+    val LocalDateTime = s"${LocalDate} ${LocalTime}"
+  }
+
+  private object MimirTimePatterns {
+    val LocalDate = "yyyy-MM-dd"
+    val LocalTime = "HH:mm:ss"
+    val LocalDateTime = s"${LocalDate} ${LocalTime}"
+  }
 }
 
 object TSDestination {
