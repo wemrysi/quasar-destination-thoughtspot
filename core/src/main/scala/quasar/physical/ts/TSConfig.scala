@@ -31,7 +31,8 @@ final case class TSConfig(
     port: Int,
     user: String,
     auth: Auth,
-    database: String) {
+    database: String,
+    schema: Option[String]) {
 
   def sanitized: TSConfig =
     copy(auth = auth.sanitized)
@@ -39,7 +40,7 @@ final case class TSConfig(
 
 object TSConfig {
   implicit val codec: CodecJson[TSConfig] =
-    casecodec5(TSConfig.apply, TSConfig.unapply)("host", "port", "user", "auth", "database")
+    casecodec6(TSConfig.apply, TSConfig.unapply)("host", "port", "user", "auth", "database", "schema")
 }
 
 sealed trait Auth extends Product with Serializable {
