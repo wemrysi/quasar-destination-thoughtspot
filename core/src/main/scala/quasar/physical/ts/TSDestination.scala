@@ -163,6 +163,7 @@ final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] priv
     | tsload
     |   --target_database '${config.database}'
     |   --target_table '$tableName'
+    |   --max_ignored_rows 8192
     |   --field_separator ','
     |   --null_value ''
     |   --date_time_format '${TSTimePatterns.LocalDateTime}'
