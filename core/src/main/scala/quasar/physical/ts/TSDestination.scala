@@ -188,7 +188,7 @@ final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] priv
         case OffsetDateTime | LocalDateTime => "DATETIME"
         case Interval => ???
         case Number => "DOUBLE"   // TODO
-        case ColumnType.String => "VARCHAR(255)"   // TODO!
+        case ColumnType.String => "VARCHAR(1024)"   // TODO!
       }
 
       s""""${name}" $tpeStr"""
