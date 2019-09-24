@@ -71,6 +71,7 @@ final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] priv
   private[this] val csvConfig =
     RenderConfig.Csv().copy(
       includeHeader = false,
+      includeBom = false,
       offsetDateTimeFormat = DateTimeFormatter.ofPattern(MimirTimePatterns.LocalDateTime),    // TODO this is the time hack to make things work for now
       localDateTimeFormat = DateTimeFormatter.ofPattern(MimirTimePatterns.LocalDateTime),
       localDateFormat = DateTimeFormatter.ofPattern(MimirTimePatterns.LocalDate),
