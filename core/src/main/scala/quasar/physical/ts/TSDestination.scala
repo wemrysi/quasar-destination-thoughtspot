@@ -73,6 +73,7 @@ final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] priv
     RenderConfig.Csv().copy(
       includeHeader = false,
       nullSentinel = Some(NullSentinel),
+      includeBom = false,
       offsetDateTimeFormat = DateTimeFormatter.ofPattern(MimirTimePatterns.LocalDateTime),    // TODO this is the time hack to make things work for now
       localDateTimeFormat = DateTimeFormatter.ofPattern(MimirTimePatterns.LocalDateTime),
       localDateFormat = DateTimeFormatter.ofPattern(MimirTimePatterns.LocalDate),
@@ -167,6 +168,7 @@ final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] priv
     |   --target_database '${config.database}'
     |   ${config.schema.map(s => s"""--target_schema "$s"""").getOrElse("")}
     |   --target_table '$tableName'
+    |   --max_ignored_rows 8192
     |   --field_separator ','
     |   --null_value '$NullSentinel'
     |   --date_time_format '${TSTimePatterns.LocalDateTime}'
