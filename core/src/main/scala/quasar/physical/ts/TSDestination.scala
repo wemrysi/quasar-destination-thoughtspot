@@ -165,6 +165,7 @@ final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] priv
     |   --target_database '${config.database}'
     |   ${config.schema.map(s => s"""--target_schema "$s"""").getOrElse("")}
     |   --target_table '$tableName'
+    |   --max_ignored_rows 8192
     |   --field_separator ','
     |   --null_value ''
     |   --date_time_format '${TSTimePatterns.LocalDateTime}'
