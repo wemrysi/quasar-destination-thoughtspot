@@ -52,6 +52,7 @@ final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] priv
     extends Destination[F]
     with Logging {
 
+  private val NullSentinel = "__sd_null_sentinel_str__"
   private val BufferSize = 1024 * 10    // keep in sync with BufferContext#RenderBufferSize
 
   private val cc =
@@ -69,8 +70,9 @@ final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] priv
     NonEmptyList(tsSink)
 
   private[this] val csvConfig =
-    RenderConfig.Csv().copy(
+    RenderConfig.Csv(
       includeHeader = false,
+      nullSentinel = Some(NullSentinel),
       includeBom = false,
       offsetDateTimeFormat = DateTimeFormatter.ofPattern(MimirTimePatterns.LocalDateTime),    // TODO this is the time hack to make things work for now
       localDateTimeFormat = DateTimeFormatter.ofPattern(MimirTimePatterns.LocalDateTime),
@@ -168,7 +170,7 @@ final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] priv
     |   --target_table '$tableName'
     |   --max_ignored_rows 8192
     |   --field_separator ','
-    |   --null_value ''
+    |   --null_value '$NullSentinel'
     |   --date_time_format '${TSTimePatterns.LocalDateTime}'
     |   --date_format '${TSTimePatterns.LocalDate}'
     |   --time_format '${TSTimePatterns.LocalTime}'
