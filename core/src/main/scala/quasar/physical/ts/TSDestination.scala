@@ -70,7 +70,7 @@ final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] priv
     NonEmptyList(tsSink)
 
   private[this] val csvConfig =
-    RenderConfig.Csv().copy(
+    RenderConfig.Csv(
       includeHeader = false,
       nullSentinel = Some(NullSentinel),
       includeBom = false,
