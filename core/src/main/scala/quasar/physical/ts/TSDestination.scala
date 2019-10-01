@@ -126,7 +126,7 @@ final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] priv
 
         p <- Stream.resource(client.exec(cc, cmd, blocker))
 
-        ingest <- bytes
+        exitCode <- bytes
           // .observe(in => text.utf8Decode(in).through(text.lines).through(fs2.Sink.showLinesStdOut))
           .observe(chunkLogSink)
           .through(gzip[F](BufferSize))
@@ -139,9 +139,7 @@ final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] priv
                 p.stderr
                   .through(text.utf8Decode)
                   .through(text.lines))
-              .through(infoSink))
-
-        exitCode <- Stream.eval(p.join)
+              .through(infoSink)).drain ++ Stream.eval(p.join)
 
         _ <- if (exitCode =!= 0)
           Stream.eval(Sync[F].delay(log.warn(s"tsload exited with status $exitCode")) *>
