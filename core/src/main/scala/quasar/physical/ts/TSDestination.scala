@@ -108,28 +108,25 @@ final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] priv
       }
 
       val r = for {
-        tableName <- Resource.liftF[F, String](tableNameF)
+        tableName <- Stream.eval[F, String](tableNameF)
 
-        _ <- Resource.liftF(
+        _ <- Stream.eval(
             Sync[F].delay(
               log.info(s"(re)creating ${config.database}.${tableName} with schema ${columns.show}")))
 
-        p <- client.exec(cc, "tql", blocker)
+        p <- Stream.resource(client.exec(cc, "tql", blocker))
         _ <- Stream(overwriteDdl(tableName, columns) + "exit;")
           .flatMap(s => Stream.emits(s.getBytes("UTF-8")))
           .through(p.stdin)
-          .compile
-          .resource
-          .drain
 
         cmd = loadCommand(tableName)
-        _ <- Resource.liftF(
+        _ <- Stream.eval(
           Sync[F].delay(
             log.info(s"running remote ingest: $cmd")))
 
-        p <- client.exec(cc, cmd, blocker)
+        p <- Stream.resource(client.exec(cc, cmd, blocker))
 
-        ingest = bytes
+        exitCode <- bytes
           // .observe(in => text.utf8Decode(in).through(text.lines).through(fs2.Sink.showLinesStdOut))
           .observe(chunkLogSink)
           .through(gzip[F](BufferSize))
@@ -142,22 +139,19 @@ final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] priv
                 p.stderr
                   .through(text.utf8Decode)
                   .through(text.lines))
-              .through(infoSink))
-
-        _ <- ingest.compile.resource.drain
-
-        exitCode <- Resource.liftF(p.join)
+              .through(infoSink)).drain ++ Stream.eval(p.join)
 
         _ <- if (exitCode =!= 0)
-          Resource.liftF(Sync[F].delay(log.warn(s"tsload exited with status $exitCode"))) *>
-            Resource.liftF(Sync[F].raiseError(TSDestination.IngestFailure: Throwable))
+          Stream.eval(Sync[F].delay(log.warn(s"tsload exited with status $exitCode")) *>
+            Sync[F].raiseError(TSDestination.IngestFailure: Throwable))
         else
-          Resource.liftF(Sync[F].delay(log.info(s"tsload exited with status $exitCode")))
+          Stream.eval(Sync[F].delay(log.info(s"tsload exited with status $exitCode")))
       } yield ()
 
-      r.use(_.pure[F]) handleErrorWith { t =>
-        Sync[F].delay(log.error("thoughtspot push produced unexpected error", t)) >>
-          Sync[F].raiseError(t)
+      r handleErrorWith { t =>
+        Stream.eval(
+          Sync[F].delay(log.error("thoughtspot push produced unexpected error", t)) >>
+            Sync[F].raiseError(t))
       }
     }
 
