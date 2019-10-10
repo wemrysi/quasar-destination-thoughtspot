@@ -169,8 +169,8 @@ final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] priv
     |   --date_format '${TSTimePatterns.LocalDate}'
     |   --time_format '${TSTimePatterns.LocalTime}'
     |   --skip_second_fraction
-    |   --boolean_representation 'true_false'""".stripMargin.replace("\n", "")
     |   --empty_target
+    |   --boolean_representation 'true_false'""".stripMargin.replace("\n", "")
 
   // TODO partitioning
   private[this] def overwriteDdl(tableName: String, columns: List[TableColumn]): String = {
