@@ -169,6 +169,7 @@ final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] priv
     |   --date_format '${TSTimePatterns.LocalDate}'
     |   --time_format '${TSTimePatterns.LocalTime}'
     |   --skip_second_fraction
+    |   --empty_target
     |   --boolean_representation 'true_false'""".stripMargin.replace("\n", "")
 
   // TODO partitioning
