@@ -17,6 +17,7 @@
 package quasar.physical.ts
 
 import cats.{Functor, Show}
+import cats.data.NonEmptyList
 import cats.effect.{Blocker, Concurrent, ContextShift, Resource, Sync}
 import cats.implicits._
 import cats.mtl.FunctorRaise
@@ -27,17 +28,16 @@ import fs2.io.ssh.{Auth => SshAuth, Client, ConnectionConfig}
 
 import org.slf4s.Logging
 
-import quasar.api.destination.{Destination, DestinationError, ResultSink}, DestinationError.InitializationError
+import quasar.api.destination.{Destination, DestinationColumn, LegacyDestination, ResultSink}
+import quasar.api.destination.DestinationError.InitializationError
 import quasar.api.push.RenderConfig
 import quasar.api.resource.ResourceName
-import quasar.api.table.{ColumnType, TableColumn}
+import quasar.api.table.ColumnType
 import quasar.connector.{MonadResourceErr, ResourceError}
-
-import scalaz.NonEmptyList
 
 import shims._
 
-import scala.{Byte, List, None, Predef, Some, StringContext, Unit}, Predef._
+import scala.{Byte, None, Predef, Some, StringContext, Unit}, Predef._
 import scala.util.Either
 
 import java.lang.{RuntimeException, String, Throwable}
@@ -49,7 +49,7 @@ final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] priv
     config: TSConfig,
     client: Client[F],
     blocker: Blocker)
-    extends Destination[F]
+    extends LegacyDestination[F]
     with Logging {
 
   private val NullSentinel = "__sd_null_sentinel_str__"
@@ -66,8 +66,8 @@ final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] priv
 
   def destinationType = TSDestinationModule.destinationType
 
-  def sinks: NonEmptyList[ResultSink[F]] =
-    NonEmptyList(tsSink)
+  def sinks: NonEmptyList[ResultSink[F, Type]] =
+    NonEmptyList.one(tsSink)
 
   private[this] val csvConfig =
     RenderConfig.Csv(
@@ -79,8 +79,8 @@ final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] priv
       localDateFormat = DateTimeFormatter.ofPattern(MimirTimePatterns.LocalDate),
       localTimeFormat = DateTimeFormatter.ofPattern(MimirTimePatterns.LocalTime))
 
-  private[this] val tsSink: ResultSink[F] =
-    ResultSink.csv[F](csvConfig) { (path, columns, bytes) =>
+  private[this] val tsSink: ResultSink[F, Type] =
+    ResultSink.csv[F, Type](csvConfig) { (path, columns, bytes) =>
       implicit val raiseClientErrorInResourceErr: FunctorRaise[F, Client.Error] =
           new FunctorRaise[F, Client.Error] {
             val functor = Functor[F]
@@ -173,11 +173,11 @@ final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] priv
     |   --boolean_representation 'true_false'""".stripMargin.replace("\n", "")
 
   // TODO partitioning
-  private[this] def overwriteDdl(tableName: String, columns: List[TableColumn]): String = {
-    def renderColumn(col: TableColumn): String = {
+  private[this] def overwriteDdl(tableName: String, columns: NonEmptyList[DestinationColumn[ColumnType.Scalar]]): String = {
+    def renderColumn(col: DestinationColumn[ColumnType.Scalar]): String = {
       import ColumnType.{String => _, _}
 
-      val TableColumn(name, tpe) = col
+      val DestinationColumn(name, tpe) = col
 
       val tpeStr = tpe match {
         case Boolean | Null => "BOOL"
@@ -195,7 +195,7 @@ final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] priv
       s""""${name}" $tpeStr"""
     }
 
-    val colsStr = columns.map(renderColumn).mkString("(", ",", ")")
+    val colsStr = columns.map(renderColumn).toList.mkString("(", ",", ")")
 
     s"""USE "${config.database}";
       | ${config.schema.map(s => s"""CREATE SCHEMA "$s";""")};
