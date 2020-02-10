@@ -5,7 +5,11 @@ on: pull_request
 jobs:
   build:
     name: Build
-    runs-on: [ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        scala: [2.12.10]
     steps:
       - name: Checkout branch
         uses: actions/checkout@v2
@@ -15,8 +19,12 @@ jobs:
           java-version: 1.8
       - name: Setup Git Actor
         run: git config github.actor slamdata-bot
+      - name: Set github user email
+        run: git config --global user.email "bot@slamdata.com"
+      - name: Set github username
+        run: git config --global user.name "SlamData Bot"
       - name: Compile and test
-        run: ./sbt test
+        run: ./sbt ++${{ matrix.scala }} test
       - name: Upload target
         uses: actions/upload-artifact@v1
         with:
