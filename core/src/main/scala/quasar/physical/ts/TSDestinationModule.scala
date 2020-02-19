@@ -24,9 +24,10 @@ import cats.effect.{ConcurrentEffect, ContextShift, Resource,   Timer}
 
 import eu.timepit.refined.auto._
 
-import quasar.connector.{DestinationModule, MonadResourceErr}
-import quasar.api.destination.{Destination, DestinationError, DestinationType}, DestinationError.InitializationError
+import quasar.api.destination.{DestinationError, DestinationType}, DestinationError.InitializationError
 import quasar.api.destination.DestinationError.InitializationError
+import quasar.connector.MonadResourceErr
+import quasar.connector.destination.{Destination, DestinationModule}
 
 import scala.util.Either
 

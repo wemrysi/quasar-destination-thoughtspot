@@ -28,12 +28,12 @@ import fs2.io.ssh.{Auth => SshAuth, Client, ConnectionConfig}
 
 import org.slf4s.Logging
 
-import quasar.api.destination.{Destination, DestinationColumn, LegacyDestination, ResultSink}
+import quasar.api.{Column, ColumnType}
 import quasar.api.destination.DestinationError.InitializationError
-import quasar.api.push.RenderConfig
 import quasar.api.resource.ResourceName
-import quasar.api.table.ColumnType
 import quasar.connector.{MonadResourceErr, ResourceError}
+import quasar.connector.destination.{Destination, LegacyDestination, ResultSink}
+import quasar.connector.render.RenderConfig
 
 import shims._
 
@@ -80,7 +80,7 @@ final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] priv
       localTimeFormat = DateTimeFormatter.ofPattern(MimirTimePatterns.LocalTime))
 
   private[this] val tsSink: ResultSink[F, Type] =
-    ResultSink.csv[F, Type](csvConfig) { (path, columns, bytes) =>
+    ResultSink.create[F, Type](csvConfig) { (path, columns, bytes) =>
       implicit val raiseClientErrorInResourceErr: FunctorRaise[F, Client.Error] =
           new FunctorRaise[F, Client.Error] {
             val functor = Functor[F]
@@ -173,11 +173,11 @@ final class TSDestination[F[_]: Concurrent: ContextShift: MonadResourceErr] priv
     |   --boolean_representation 'true_false'""".stripMargin.replace("\n", "")
 
   // TODO partitioning
-  private[this] def overwriteDdl(tableName: String, columns: NonEmptyList[DestinationColumn[ColumnType.Scalar]]): String = {
-    def renderColumn(col: DestinationColumn[ColumnType.Scalar]): String = {
+  private[this] def overwriteDdl(tableName: String, columns: NonEmptyList[Column[ColumnType.Scalar]]): String = {
+    def renderColumn(col: Column[ColumnType.Scalar]): String = {
       import ColumnType.{String => _, _}
 
-      val DestinationColumn(name, tpe) = col
+      val Column(name, tpe) = col
 
       val tpeStr = tpe match {
         case Boolean | Null => "BOOL"
