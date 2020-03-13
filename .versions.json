@@ -1,4 +1,4 @@
 {
-  "slamdata-quasar": "165.0.9",
-  "slamdata-fs2-ssh": "1.1.4"
+  "precog-quasar": "165.0.10",
+  "precog-fs2-ssh": "1.1.6"
 }

@@ -2,11 +2,13 @@ import scala.collection.Seq
 
 ThisBuild / scalaVersion := "2.12.10"
 
-homepage in ThisBuild := Some(url("https://github.com/slamdata/quasar-destination-thoughtspot"))
+ThisBuild / githubRepository := "quasar-destination-thoughtspot"
+
+homepage in ThisBuild := Some(url("https://github.com/precog/quasar-destination-thoughtspot"))
 
 scmInfo in ThisBuild := Some(ScmInfo(
-  url("https://github.com/slamdata/quasar-destination-thoughtspot"),
-  "scm:git@github.com:slamdata/quasar-destination-thoughtspot.git"))
+  url("https://github.com/precog/quasar-destination-thoughtspot"),
+  "scm:git@github.com:precog/quasar-destination-thoughtspot.git"))
 
 val ArgonautVersion = "6.2.3"
 
@@ -25,12 +27,12 @@ lazy val core = project
   .settings(name := "quasar-destination-thoughtspot")
   .settings(
     quasarPluginName := "thoughtspot",
-    quasarPluginQuasarVersion := managedVersions.value("slamdata-quasar"),
+    quasarPluginQuasarVersion := managedVersions.value("precog-quasar"),
     quasarPluginDestinationFqcn := Some("quasar.physical.ts.TSDestinationModule$"),
 
     quasarPluginDependencies ++= Seq(
       "io.argonaut"  %% "argonaut"  % ArgonautVersion,
-      "com.slamdata" %% "fs2-ssh"   % managedVersions.value("slamdata-fs2-ssh"),
+      "com.precog"   %% "fs2-ssh"   % managedVersions.value("precog-fs2-ssh"),
       "org.slf4s"    %% "slf4s-api" % "1.7.25"),
 
     performMavenCentralSync := false,
