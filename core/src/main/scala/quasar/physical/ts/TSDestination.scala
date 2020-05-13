@@ -23,7 +23,7 @@ import cats.implicits._
 import cats.mtl.FunctorRaise
 
 import fs2.{text, Pipe, Stream}
-import fs2.compress.gzip
+import fs2.compression.gzip
 import fs2.io.ssh.{Auth => SshAuth, Client, ConnectionConfig}
 
 import org.slf4s.Logging
