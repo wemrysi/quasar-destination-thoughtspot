@@ -22,8 +22,6 @@ import argonaut.{Argonaut, Json}, Argonaut._
 
 import cats.effect.{ConcurrentEffect, ContextShift, Resource,   Timer}
 
-import eu.timepit.refined.auto._
-
 import quasar.api.destination.{DestinationError, DestinationType}, DestinationError.InitializationError
 import quasar.api.destination.DestinationError.InitializationError
 import quasar.connector.MonadResourceErr
